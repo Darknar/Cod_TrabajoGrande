@@ -1,7 +1,7 @@
-#include <ros/ros.h>
-#include <nav_msgs/Path.h>
-#include <geometry_msgs/PoseStamped.h>
-#include <geometry_msgs/Twist.h>
+#include "ros/ros.h"
+#include "nav_msgs/Path.h"
+#include "geometry_msgs/PoseStamped.h"
+#include "geometry_msgs/Twist.h"
 
 #include <vector>
 #include <math.h>
@@ -40,18 +40,20 @@ class PurePursuit {
 		ros::NodeHandle nh;
 		ros::Subscriber path_sub;
 		ros::Subscriber odom_sub;
+		ros::Subscriber baselink_sub;
 		ros::Publisher cmd_vel_pub;
 		nav_msgs::Path path;
-		
+
 		double Distancia_Futura;
 
-		vector<Punto> puntos;
+		std::vector<Punto> puntos;
 
 	public:
 		//? Constructor
 			PurePursuit() : Velocidad_lineal(0.1) {
 				path_sub = nh.subscribe("/move_base/NavfnROS/plan", 1, &PurePursuit::pathCallback, this);
-				odom_sub = nh.subscribe("/odom", 1, &PurePursuit::PosicionRobot, this);
+				baselink_sub = nh.subscribe("/base_link", 1, &PurePursuit::callbase_link, this);
+				odom_sub = nh.subscribe("/odom", 1, &PurePursuit::callback_odom, this);
 				cmd_vel_pub = nh.advertise<geometry_msgs::Twist>("cmd_vel", 1);
 				Distancia_Futura = 0.5;
 			}
@@ -59,10 +61,20 @@ class PurePursuit {
 		//? Metodos
 			void pathCallback(const nav_msgs::PathConstPtr &msg) {
 				path = *msg;
-				puntos = vector<Punto>();
+				puntos = std::vector<Punto>();
 				for (int i = 0; i < path.poses.size(); i++) {
 					puntos.push_back(Punto(path.poses[i].pose.position.x, path.poses[i].pose.position.y));
 				}
+			}
+
+			void callback_odom(const nav_msgs::Odometry::ConstPtr& msg){
+				odomPose2D.x = msg->pose.pose.position.x;
+				odomPose2D.y = msg->pose.pose.position.y;
+			}
+
+			void callbase_link(const geometry_msgs::PoseStamped::ConstPtr& msg){
+				base_linkPose2D.x = msg->pose.position.x;
+				base_linkPose2D.y = msg->pose.position.y;
 			}
 
 			double puntoCercano() {
@@ -98,16 +110,17 @@ class PurePursuit {
 			}
 
 
-			double getAngle(int closest_waypoint, int lookahead_waypoint) {
+			double getAngle(int Punto_con_distancia_mas_cercana, int Punto_Futuro) {
 				if (puntos.empty()) {
 					ROS_WARN("No path data found");
 					return 0.0;
 				}
-				double dx = puntos[lookahead_waypoint].getX() - puntos[closest_waypoint].getX();
-				double dy = puntos[lookahead_waypoint].getY() - puntos[closest_waypoint].getY();
+				double dx = puntos[Punto_Futuro].getX() - puntos[Punto_con_distancia_mas_cercana].getX();
+				double dy = puntos[Punto_Futuro].getY() - puntos[Punto_con_distancia_mas_cercana].getY();
+
 				ROS_INFO_STREAM("dx " << dx);
 				ROS_INFO_STREAM("dy " << dy);
-				// dx=dy=1.0;
+
 				return atan2(dy, dx);
 			}
 
