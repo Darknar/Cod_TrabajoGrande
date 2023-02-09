@@ -4,6 +4,8 @@
 #include <geometry_msgs/Twist.h>
 #include <math.h>
 
+//? Clase PurePursuit
+
 class PurePursuit {
 	private:
 		ros::NodeHandle nh;
